@@ -18,6 +18,10 @@ def validate_operation(operation):
         "divide",
         "power",
         "root",
+        "modulus",
+        "int_divide",
+        "percent",
+        "abs_diff",
     }
 
     if operation.lower() not in valid_operations:

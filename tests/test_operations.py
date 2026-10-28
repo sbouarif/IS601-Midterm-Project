@@ -68,3 +68,30 @@ def test_even_root_negative_number():
 
 def test_odd_root_negative_number():
     assert RootOperation().execute(-8, 3) == pytest.approx(-2)
+
+
+@pytest.mark.parametrize(
+    "operation,a,b,expected",
+    [
+        ("modulus", 10, 3, 1),
+        ("int_divide", 10, 3, 3),
+        ("percent", 25, 200, 12.5),
+        ("abs_diff", 5, 12, 7),
+        ("abs_diff", 12, 5, 7),
+        ("modulus", 10, 5, 0),
+    ],
+)
+def test_new_operations(operation, a, b, expected):
+    operation_obj = OperationFactory.create_operation(operation)
+    assert operation_obj.execute(a, b) == expected
+
+
+@pytest.mark.parametrize(
+    "operation",
+    ["modulus", "int_divide", "percent"],
+)
+def test_new_operations_zero_division(operation):
+    operation_obj = OperationFactory.create_operation(operation)
+
+    with pytest.raises(ZeroDivisionError):
+        operation_obj.execute(10, 0)

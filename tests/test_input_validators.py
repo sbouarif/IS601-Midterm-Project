@@ -52,7 +52,7 @@ def test_validate_operation_case_insensitive():
     "operation",
     [
         "invalid",
-        "modulus",
+        "unknown_operation",
         "hello",
     ],
 )

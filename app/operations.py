@@ -58,7 +58,38 @@ class RootOperation(Operation):
         if a < 0:
             return -((-a) ** (1 / b))
         return a ** (1 / b)
+class ModulusOperation(Operation):
+    """Returns the remainder after division."""
 
+    def execute(self, a, b):
+        if b == 0:
+            raise ZeroDivisionError("Cannot calculate modulus by zero.")
+        return a % b
+
+
+class IntegerDivideOperation(Operation):
+    """Returns the integer quotient using floor division."""
+
+    def execute(self, a, b):
+        if b == 0:
+            raise ZeroDivisionError("Cannot divide by zero.")
+        return a // b
+
+
+class PercentOperation(Operation):
+    """Calculates a as a percentage of b."""
+
+    def execute(self, a, b):
+        if b == 0:
+            raise ZeroDivisionError("Cannot calculate percentage with a zero denominator.")
+        return (a / b) * 100
+
+
+class AbsoluteDifferenceOperation(Operation):
+    """Returns the absolute difference between two numbers."""
+
+    def execute(self, a, b):
+        return abs(a - b)
 
 class OperationFactory:
     """Factory for creating calculator operation objects."""
@@ -70,6 +101,10 @@ class OperationFactory:
         "divide": DivideOperation,
         "power": PowerOperation,
         "root": RootOperation,
+        "modulus": ModulusOperation,
+        "int_divide": IntegerDivideOperation,
+        "percent": PercentOperation,
+        "abs_diff": AbsoluteDifferenceOperation,
     }
 
     @classmethod
