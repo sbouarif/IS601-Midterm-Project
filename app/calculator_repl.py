@@ -5,6 +5,9 @@ from app.exceptions import CalculatorError
 from app.history import History, AutoSaveObserver
 from app.input_validators import validate_number, validate_operation
 import logging
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -101,7 +104,7 @@ class Calculator:
 
     def start(self):
         """Start the calculator REPL."""
-        print("Welcome to the Advanced Calculator!")
+        print(Fore.CYAN + "Welcome to the Advanced Calculator!" + Style.RESET_ALL)
         print("Type 'help' for instructions or 'exit' to quit.")
 
         while True:
@@ -121,27 +124,27 @@ class Calculator:
 
             if command == "clear":
                 self.clear_history()
-                print("History cleared.")
+                print(Fore.GREEN + "History cleared." + Style.RESET_ALL)
                 continue
 
             if command == "undo":
                 self.undo()
-                print("Undo complete.")
+                print(Fore.GREEN + "Undo complete." + Style.RESET_ALL)
                 continue
 
             if command == "redo":
                 self.redo()
-                print("Redo complete.")
+                print(Fore.GREEN + "Redo complete." + Style.RESET_ALL)
                 continue
 
             if command == "save":
                 self.save()
-                print("History saved.")
+                print(Fore.GREEN + "History saved." + Style.RESET_ALL)
                 continue
 
             if command == "load":
                 self.load()
-                print("History loaded.")
+                print(Fore.GREEN + "History loaded." + Style.RESET_ALL)
                 continue
 
             try:
@@ -154,8 +157,8 @@ class Calculator:
 
                 operation, a, b = parts
                 result = self.calculate(operation, a, b)
-                print(f"Result: {result}")
+                print(Fore.GREEN + f"Result: {result}" + Style.RESET_ALL)
 
             # EAFP: attempt the operation and handle errors if they occur.
             except (CalculatorError, ValueError, ZeroDivisionError) as exc:
-                print(f"Error: {exc}")
+                print(Fore.RED + f"Error: {exc}" + Style.RESET_ALL)
