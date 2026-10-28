@@ -4,7 +4,10 @@ from app.calculator_memento import MementoManager
 from app.exceptions import CalculatorError
 from app.history import History, AutoSaveObserver
 from app.input_validators import validate_number, validate_operation
+import logging
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Calculator:
     """Facade that provides a simple interface to the calculator system."""
@@ -40,7 +43,18 @@ class Calculator:
         )
 
         calculation = Calculation(operation, a, b)
-        result = calculation.perform()
+        try:
+            result = calculation.perform()
+        except Exception:
+            logger.exception(
+                "Calculation failed: %s(%s, %s)",
+                operation, a, b
+            )
+            raise
+        logger.info(
+            "Calculation completed: %s(%s, %s) = %s",
+            operation, a, b, result
+        )
 
         self.history.add_calculation(calculation)
 
