@@ -2,23 +2,25 @@ from app.calculation import Calculation
 from app.calculator_config import CalculatorConfig
 from app.calculator_memento import MementoManager
 from app.exceptions import CalculatorError
-from app.history import History, AutoSaveObserver
+from app.history import History, AutoSaveObserver, LoggingObserver
+from app.logger import configure_logging 
 from app.input_validators import validate_number, validate_operation
 import logging
 from colorama import Fore, Style, init
 
 init(autoreset=True)
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 class Calculator:
     """Facade that provides a simple interface to the calculator system."""
 
     def __init__(self):
         self.config = CalculatorConfig()
+        self.logger = configure_logging(self.config.log_file)
         self.history = History(self.config.max_history_size)
         self.memento_manager = MementoManager()
+        self.history.add_observer(
+            LoggingObserver(self.logger)
+        )
 
         if self.config.auto_save:
             self.history.add_observer(
@@ -30,33 +32,46 @@ class Calculator:
 
     def calculate(self, operation, a, b):
         """Validate input, perform a calculation, and store it."""
-        operation = validate_operation(operation)
-        a = validate_number(a)
-        b = validate_number(b)
+        try:
+            operation = validate_operation(operation)
+            a = validate_number(a)
+            b = validate_number(b)
+        except (CalculatorError, ValueError) as exc:
+            self.logger.warning(
+                "Invalid calculation input: %s",
+                exc
+            )
+            raise
 
         # LBYL: check values before performing the calculation.
         if abs(a) > self.config.max_input_value:
+            self.logger.warning(
+                "First number exceeds maximum input value: %s", a
+            )
             raise ValueError("First number exceeds maximum input value.")
-
+            
         if abs(b) > self.config.max_input_value:
+            self.logger.warning(
+                "Second number exceeds maximum input value: %s", b
+            )
             raise ValueError("Second number exceeds maximum input value.")
-
-        self.memento_manager.save_state(
-            self.history.get_history()
-        )
 
         calculation = Calculation(operation, a, b)
         try:
             result = calculation.perform()
         except Exception:
-            logger.exception(
+            self.logger.exception(
                 "Calculation failed: %s(%s, %s)",
                 operation, a, b
             )
             raise
-        logger.info(
+        self.logger.info(
             "Calculation completed: %s(%s, %s) = %s",
             operation, a, b, result
+        )
+        
+        self.memento_manager.save_state(
+            self.history.get_history()
         )
 
         self.history.add_calculation(calculation)

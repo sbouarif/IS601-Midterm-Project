@@ -6,6 +6,7 @@ import pandas as pd
 from app.calculation import Calculation
 from app.exceptions import CalculatorError, HistoryError
 from app.operations import OperationFactory
+from datetime import datetime
 
 
 HISTORY_COLUMNS = ["operation", "a", "b", "result", "timestamp"]
@@ -28,6 +29,18 @@ class AutoSaveObserver(HistoryObserver):
     def update(self, history):
         history.save_to_csv(self.filename)
 
+class LoggingObserver(HistoryObserver):
+    """Log changes to calculation history."""
+
+    def __init__(self, logger):
+        self.logger = logger
+
+    def update(self, history):
+        """Record a history update in the application log."""
+        self.logger.info(
+            "Calculation history updated. Total entries: %s",
+            len(history.get_history()),
+        )
 
 class History:
     """Manage timestamped calculation history using pandas."""
@@ -89,7 +102,13 @@ class History:
         try:
             loaded = pd.read_csv(filename)
 
-            if list(loaded.columns) != HISTORY_COLUMNS:
+            legacy_columns = ["operation", "a", "b", "result"]
+            if list(loaded.columns) == legacy_columns:
+                # Older history files did not include timestamps.
+                # Assign an import timestamp to legacy records.
+                loaded["timestamp"] = datetime.now().isoformat()
+                
+            elif list(loaded.columns) != HISTORY_COLUMNS:
                 raise ValueError(
                     "CSV must contain operation, a, b, result, timestamp."
                 )

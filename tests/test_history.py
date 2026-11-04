@@ -300,3 +300,26 @@ def test_incorrect_csv_result_rejected(tmp_path):
 
     with pytest.raises(HistoryError, match="Unable to load history"):
         history.load_from_csv(filename)
+
+def test_legacy_csv_without_timestamp_loads(tmp_path):
+    """Older CSV files should load with an assigned import timestamp."""
+    filename = tmp_path / "legacy_history.csv"
+
+    pd.DataFrame(
+        [
+            {"operation": "add", "a": 5, "b": 3, "result": 8},
+            {"operation": "modulus", "a": 10, "b": 3, "result": 1},
+        ]
+    ).to_csv(filename, index=False)
+
+    history = History()
+    history.load_from_csv(filename)
+
+    data = history.get_history()
+
+    assert len(data) == 2
+    assert list(data.columns) == [
+        "operation", "a", "b", "result", "timestamp"
+    ]
+    assert list(data["result"]) == [8, 1]
+    assert data["timestamp"].notna().all()
