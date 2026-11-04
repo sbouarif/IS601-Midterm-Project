@@ -5,7 +5,7 @@ import pytest
 
 from app.calculation import Calculation
 from app.exceptions import HistoryError
-from app.history import History, AutoSaveObserver
+from app.history import History, AutoSaveObserver, HistoryObserver
 
 
 @pytest.fixture
@@ -323,3 +323,45 @@ def test_legacy_csv_without_timestamp_loads(tmp_path):
     ]
     assert list(data["result"]) == [8, 1]
     assert data["timestamp"].notna().all()
+
+
+def test_history_observer_requires_implementation(history):
+    """The base observer must require subclasses to implement update."""
+    observer = HistoryObserver()
+
+    with pytest.raises(NotImplementedError):
+        observer.update(history)
+
+
+def test_history_rejects_non_calculation_objects(history):
+    """History must reject objects that are not Calculations."""
+    with pytest.raises(
+        HistoryError, match="History requires a Calculation object"
+    ):
+        history.add_calculation("not a calculation")
+
+    assert history.get_history().empty
+
+def test_csv_calculation_error_is_handled(tmp_path):
+    """Invalid arithmetic in a CSV should raise HistoryError."""
+    filename = tmp_path / "division_by_zero.csv"
+
+    pd.DataFrame(
+        [{
+            "operation": "divide",
+            "a": 10,
+            "b": 0,
+            "result": 0,
+            "timestamp": "2026-10-15T14:30:45",
+        }]
+    ).to_csv(filename, index=False)
+
+    history = History()
+
+    with pytest.raises(
+        HistoryError,
+        match="Invalid calculation in CSV: divide"
+    ):
+        history.load_from_csv(filename)
+
+    assert history.get_history().empty

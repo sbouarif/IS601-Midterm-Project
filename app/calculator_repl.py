@@ -90,14 +90,22 @@ class Calculator:
         self.history.clear()
 
     def undo(self):
-        """Undo the last history change."""
+        """Undo the last history change and notify observers."""
         current = self.history.get_history()
-        self.history.data = self.memento_manager.undo(current)
+        restored = self.memento_manager.undo(current)
+
+        if not restored.equals(current):
+            self.history.data = restored
+            self.history.notify_observers()
 
     def redo(self):
-        """Redo the last undone history change."""
+        """Redo the last undone history change and notify observers."""
         current = self.history.get_history()
-        self.history.data = self.memento_manager.redo(current)
+        restored = self.memento_manager.redo(current)
+
+        if not restored.equals(current):
+            self.history.data = restored
+            self.history.notify_observers()
 
     def save(self):
         """Save history to the configured CSV file."""
@@ -123,7 +131,11 @@ class Calculator:
         print("Type 'help' for instructions or 'exit' to quit.")
 
         while True:
-            command = input("Enter command: ").strip()
+            try:
+                command = input("Enter command: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print("\nGoodbye!")
+                break
 
             if command == "exit":
                 print("Goodbye!")
@@ -152,17 +164,17 @@ class Calculator:
                 print(Fore.GREEN + "Redo complete." + Style.RESET_ALL)
                 continue
 
-            if command == "save":
-                self.save()
-                print(Fore.GREEN + "History saved." + Style.RESET_ALL)
-                continue
-
-            if command == "load":
-                self.load()
-                print(Fore.GREEN + "History loaded." + Style.RESET_ALL)
-                continue
-
             try:
+                if command == "save":
+                    self.save()
+                    print(Fore.GREEN + "History saved." + Style.RESET_ALL)
+                    continue
+
+                if command == "load":
+                    self.load()
+                    print(Fore.GREEN + "History loaded." + Style.RESET_ALL)
+                    continue
+
                 parts = command.split()
 
                 if len(parts) != 3:
@@ -175,5 +187,5 @@ class Calculator:
                 print(Fore.GREEN + f"Result: {result}" + Style.RESET_ALL)
 
             # EAFP: attempt the operation and handle errors if they occur.
-            except (CalculatorError, ValueError, ZeroDivisionError) as exc:
+            except (CalculatorError, ValueError, ZeroDivisionError, OSError) as exc:
                 print(Fore.RED + f"Error: {exc}" + Style.RESET_ALL)

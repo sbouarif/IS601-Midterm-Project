@@ -21,12 +21,13 @@ def test_calculation_perform(operation, a, b, expected):
 def test_calculation_to_dict():
     calculation = Calculation("add", 5, 3)
 
-    assert calculation.to_dict() == {
-        "operation": "add",
-        "a": 5,
-        "b": 3,
-        "result": 8,
-    }
+    data = calculation.to_dict()
+
+    assert data["operation"] == "add"
+    assert data["a"] == 5
+    assert data["b"] == 3
+    assert data["result"] == 8
+    assert data["timestamp"] == calculation.timestamp.isoformat()
 
 
 def test_calculation_string():

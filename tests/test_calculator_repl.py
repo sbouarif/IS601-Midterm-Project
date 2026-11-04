@@ -1,7 +1,9 @@
 import pytest
+import pandas as pd
 
 from app.calculator_repl import Calculator
 from app.exceptions import InvalidInputError
+
 
 
 @pytest.fixture
@@ -257,3 +259,94 @@ def test_max_input_violation_written_to_warning_log(
     assert "WARNING" in log_contents
     assert expected_message in log_contents
     assert calculator.show_history().empty
+
+def test_repl_recovers_from_failed_load(calculator, monkeypatch, capsys):
+    """A failed CSV load should not terminate the calculator."""
+    commands = iter(["load", "add 5 3", "exit"])
+
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt: next(commands)
+    )
+
+    def failed_load():
+        raise OSError("Unable to read history file.")
+
+    monkeypatch.setattr(calculator, "load", failed_load)
+
+    calculator.start()
+
+    output = capsys.readouterr().out
+
+    assert "Error: Unable to read history file." in output
+    assert "Result: 8.0" in output
+    assert "Goodbye!" in output
+    assert len(calculator.show_history()) == 1
+
+def test_repl_recovers_from_failed_save(calculator, monkeypatch, capsys):
+    """A failed CSV save should not terminate the calculator."""
+    commands = iter(["save", "add 5 3", "exit"])
+
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda prompt: next(commands)
+    )
+
+    def failed_save():
+        raise OSError("Unable to write history file.")
+
+    monkeypatch.setattr(calculator, "save", failed_save)
+
+    calculator.start()
+
+    output = capsys.readouterr().out
+
+    assert "Error: Unable to write history file." in output
+    assert "Result: 8.0" in output
+    assert "Goodbye!" in output
+    assert len(calculator.show_history()) == 1
+
+@pytest.mark.parametrize(
+    "interruption",
+    [EOFError, KeyboardInterrupt],
+)
+def test_repl_exits_gracefully_on_interruption(
+    calculator, monkeypatch, capsys, interruption
+):
+    """The REPL should exit without crashing when input is interrupted."""
+
+    def interrupted_input(prompt):
+        raise interruption()
+
+    monkeypatch.setattr("builtins.input", interrupted_input)
+
+    calculator.start()
+
+    output = capsys.readouterr().out
+
+    assert "Goodbye!" in output
+
+def test_undo_redo_updates_autosaved_csv(tmp_path, monkeypatch):
+    """Undo and Redo should synchronize the auto-saved CSV file."""
+    monkeypatch.setenv("CALCULATOR_BASE_DIR", str(tmp_path))
+    monkeypatch.setenv("CALCULATOR_AUTO_SAVE", "true")
+
+    calculator = Calculator()
+
+    calculator.calculate("add", "5", "3")
+    calculator.calculate("multiply", "4", "2")
+
+    csv_file = calculator.config.history_file
+
+    assert csv_file.exists()
+    assert len(pd.read_csv(csv_file)) == 2
+
+    calculator.undo()
+
+    assert len(calculator.show_history()) == 1
+    assert len(pd.read_csv(csv_file)) == 1
+
+    calculator.redo()
+
+    assert len(calculator.show_history()) == 2
+    assert len(pd.read_csv(csv_file)) == 2
