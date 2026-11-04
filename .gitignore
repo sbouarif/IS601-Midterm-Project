@@ -1,9 +1,23 @@
+# Python virtual environment
 venv/
+
+# Python cache files
 __pycache__/
+*.pyc
+
+# Testing and coverage
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Environment configuration
 .env
-*.pyc
-.DS_Store
+
+# Generated calculator files
 history.csv
+history_backup.csv
+logs/
+*.log
+
+# macOS system files
+.DS_Store
