@@ -1,6 +1,14 @@
+import math
+from pathlib import Path
+
 import pandas as pd
 
-from app.exceptions import HistoryError
+from app.calculation import Calculation
+from app.exceptions import CalculatorError, HistoryError
+from app.operations import OperationFactory
+
+
+HISTORY_COLUMNS = ["operation", "a", "b", "result", "timestamp"]
 
 
 class HistoryObserver:
@@ -8,11 +16,11 @@ class HistoryObserver:
 
     def update(self, history):
         """React to a change in calculation history."""
-        pass  # pragma: no cover
+        raise NotImplementedError
 
 
 class AutoSaveObserver(HistoryObserver):
-    """Automatically saves history when it changes."""
+    """Automatically save history whenever it changes."""
 
     def __init__(self, filename):
         self.filename = filename
@@ -22,56 +30,146 @@ class AutoSaveObserver(HistoryObserver):
 
 
 class History:
-    """Manages calculator history using a pandas DataFrame."""
+    """Manage timestamped calculation history using pandas."""
 
     def __init__(self, max_size=100):
         self.max_size = max_size
-        self.data = pd.DataFrame(
-            columns=["operation", "a", "b", "result"]
-        )
+        self.data = pd.DataFrame(columns=HISTORY_COLUMNS)
         self.observers = []
 
     def add_observer(self, observer):
-        """Add an observer to the history."""
+        """Register an observer for history changes."""
         self.observers.append(observer)
 
     def notify_observers(self):
-        """Notify observers that history has changed."""
+        """Notify registered observers."""
         for observer in self.observers:
             observer.update(self)
 
     def add_calculation(self, calculation):
-        """Add a calculation to history."""
+        """Add a completed Calculation to history."""
+        if not isinstance(calculation, Calculation):
+            raise HistoryError("History requires a Calculation object.")
+
         new_row = pd.DataFrame([calculation.to_dict()])
+
         self.data = pd.concat(
             [self.data, new_row],
             ignore_index=True,
         )
 
         if len(self.data) > self.max_size:
-            self.data = self.data.tail(self.max_size).reset_index(drop=True)
+            self.data = (
+                self.data.tail(self.max_size)
+                .reset_index(drop=True)
+            )
 
         self.notify_observers()
 
     def clear(self):
-        """Clear all calculation history."""
-        self.data = self.data.iloc[0:0]
+        """Remove all calculation history."""
+        self.data = pd.DataFrame(columns=HISTORY_COLUMNS)
         self.notify_observers()
 
     def get_history(self):
-        """Return the calculation history."""
-        return self.data.copy()
+        """Return a defensive copy of the history DataFrame."""
+        return self.data.copy(deep=True)
 
     def save_to_csv(self, filename):
-        """Save calculation history to a CSV file."""
+        """Save all history fields, including timestamps, to CSV."""
         try:
-            self.data.to_csv(filename, index=False)
-        except (OSError, PermissionError) as exc:
+            path = Path(filename)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.data.to_csv(path, index=False)
+        except (OSError, ValueError, UnicodeError) as exc:
             raise HistoryError("Unable to save history.") from exc
 
     def load_from_csv(self, filename):
-        """Load calculation history from a CSV file."""
+        """Restore Calculation objects from CSV without losing history."""
         try:
-            self.data = pd.read_csv(filename)
-        except (OSError, pd.errors.ParserError) as exc:
-            raise HistoryError("Unable to load history.") from exc
+            loaded = pd.read_csv(filename)
+
+            if list(loaded.columns) != HISTORY_COLUMNS:
+                raise ValueError(
+                    "CSV must contain operation, a, b, result, timestamp."
+                )
+
+            restored_calculations = []
+
+            for _, row in loaded.iterrows():
+                operation = str(row["operation"])
+                
+                try:
+                    OperationFactory.create_operation(operation)
+                except (ValueError, KeyError, CalculatorError) as exc:
+                    raise ValueError(
+                        f"Unsupported operation in CSV: {operation}"
+                    ) from exc
+                a = float(row["a"])
+                b = float(row["b"])
+                result = float(row["result"])
+
+                if not all(math.isfinite(value) for value in (a, b, result)):
+                    raise ValueError(
+                        "CSV contains NaN or infinite numeric values."
+                    )
+
+                timestamp = pd.to_datetime(
+                    row["timestamp"],
+                    errors="raise",
+                ).to_pydatetime()
+
+                calculation = Calculation(
+                    operation,
+                    a,
+                    b,
+                    timestamp=timestamp,
+                )
+                
+                try:
+                    expected_result = calculation.perform()
+                except (CalculatorError, ValueError, ArithmeticError) as exc:
+                    raise ValueError(
+                        f"Invalid calculation in CSV: {operation}"
+                    ) from exc 
+                
+                if not math.isclose(
+                    result,
+                    expected_result,
+                    rel_tol=1e-12,
+                    abs_tol=1e-12,
+                ):
+                    raise ValueError(
+                        f"Incorrect result in CSV for {operation}: "
+                        f"expected {expected_result}, found {result}"
+                    )
+                restored_calculations.append(calculation)
+
+            restored_rows = [
+                calculation.to_dict()
+                for calculation in restored_calculations
+            ]
+
+            restored_data = pd.DataFrame(
+                restored_rows,
+                columns=HISTORY_COLUMNS,
+            )
+
+            self.data = (
+                restored_data.tail(self.max_size)
+                .reset_index(drop=True)
+            )
+
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            OverflowError,
+            UnicodeError,
+            pd.errors.ParserError,
+            pd.errors.EmptyDataError,
+        ) as exc:
+            raise HistoryError(
+                f"Unable to load history: {exc}"
+            ) from exc
