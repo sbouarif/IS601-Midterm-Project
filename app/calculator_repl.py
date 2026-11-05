@@ -1,3 +1,5 @@
+import math
+
 from app.calculation import Calculation
 from app.calculator_config import CalculatorConfig
 from app.calculator_memento import MementoManager
@@ -28,7 +30,17 @@ class Calculator:
             )
 
         if self.config.history_file.exists():
-            self.history.load_from_csv(self.config.history_file)
+            try:
+                self.history.load_from_csv(self.config.history_file)
+            except CalculatorError as exc:
+                self.logger.error(
+                    "Unable to restore calculation history: %s", exc
+                )
+                print(
+                    Fore.YELLOW
+                    + f"Warning: Saved history could not be loaded: {exc}"
+                    + Style.RESET_ALL
+                )
 
     def calculate(self, operation, a, b):
         """Validate input, perform a calculation, and store it."""
@@ -57,14 +69,22 @@ class Calculator:
             raise ValueError("Second number exceeds maximum input value.")
 
         calculation = Calculation(operation, a, b)
+        
         try:
             result = calculation.perform()
+            
+            if isinstance(result, complex) or not math.isfinite(result):
+                raise ValueError(
+                    "Calculation must produce a finite real number."
+                )
+        
         except Exception:
             self.logger.exception(
                 "Calculation failed: %s(%s, %s)",
                 operation, a, b
             )
             raise
+
         self.logger.info(
             "Calculation completed: %s(%s, %s) = %s",
             operation, a, b, result
@@ -120,8 +140,10 @@ class Calculator:
         """Display available calculator commands."""
         print("Available operations:")
         print("  add, subtract, multiply, divide, power, root")
+        print("  modulus, int_divide, percent, abs_diff")
         print("Format: operation number1 number2")
         print("Example: add 5 3")
+        print("Example: modulus 10 3")
         print("Commands:")
         print("  help, history, clear, undo, redo, save, load, exit")
 

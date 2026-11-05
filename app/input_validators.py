@@ -1,12 +1,21 @@
+import math
+
 from app.exceptions import InvalidInputError
 
 
 def validate_number(value):
-    """Validate and convert a value to a float."""
+    """Validate and convert a finite numeric value to a float."""
     try:
-        return float(value)
-    except (ValueError, TypeError) as exc:
+        number = float(value)
+    except (ValueError, TypeError, OverflowError) as exc:
         raise InvalidInputError(f"Invalid number: {value}") from exc
+
+    if not math.isfinite(number):
+        raise InvalidInputError(
+            "Number must be finite (not NaN or infinity)."
+        )
+
+    return number
 
 
 def validate_operation(operation):
@@ -24,7 +33,12 @@ def validate_operation(operation):
         "abs_diff",
     }
 
-    if operation.lower() not in valid_operations:
+    if not isinstance(operation, str):
+        raise InvalidInputError("Operation must be a string.")
+
+    operation = operation.lower()
+
+    if operation not in valid_operations:
         raise InvalidInputError(f"Invalid operation: {operation}")
 
-    return operation.lower()
+    return operation

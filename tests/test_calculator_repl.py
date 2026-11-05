@@ -350,3 +350,37 @@ def test_undo_redo_updates_autosaved_csv(tmp_path, monkeypatch):
 
     assert len(calculator.show_history()) == 2
     assert len(pd.read_csv(csv_file)) == 2
+
+def test_complex_result_rejected(calculator):
+    with pytest.raises(
+        ValueError,
+        match="finite real number"
+    ):
+        calculator.calculate("power", -8, 0.5)
+
+
+def test_zero_negative_power_rejected(calculator):
+    with pytest.raises(ZeroDivisionError):
+        calculator.calculate("root", 0, -2)
+
+def test_startup_recovers_from_corrupted_history(monkeypatch, tmp_path, capsys):
+    """Calculator should start even when saved history is invalid."""
+    monkeypatch.setenv("CALCULATOR_BASE_DIR", str(tmp_path))
+    monkeypatch.setenv("CALCULATOR_AUTO_SAVE", "false")
+
+    history_file = tmp_path / "history.csv"
+    history_file.write_text(
+        "operation,a,b,result,timestamp\n"
+        "add,5,3,(15+0j),2026-11-04T12:00:00\n",
+        encoding="utf-8",
+    )
+
+    calculator = Calculator()
+
+    output = capsys.readouterr().out
+
+    assert "Warning: Saved history could not be loaded" in output
+    assert calculator.show_history().empty
+    assert history_file.exists()
+
+    assert calculator.calculate("add", 5, 3) == 8.0

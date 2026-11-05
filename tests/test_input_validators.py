@@ -59,3 +59,20 @@ def test_validate_operation_case_insensitive():
 def test_validate_operation_invalid(operation):
     with pytest.raises(InvalidInputError, match="Invalid operation"):
         validate_operation(operation)
+
+@pytest.mark.parametrize(
+    "value",
+    ["nan", "inf", "-inf", float("nan"), float("inf")],
+)
+def test_reject_nonfinite_numbers(value):
+    with pytest.raises(InvalidInputError):
+        validate_number(value)
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [None, 123, 4.5],
+)
+def test_reject_nonstring_operations(operation):
+    with pytest.raises(InvalidInputError):
+        validate_operation(operation)
