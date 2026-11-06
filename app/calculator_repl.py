@@ -167,23 +167,25 @@ class Calculator:
                 self.display_help()
                 continue
 
-            if command == "history":
-                print(self.show_history().to_string(index=False))
-                continue
-
-            if command == "clear":
-                self.clear_history()
-                print(Fore.GREEN + "History cleared." + Style.RESET_ALL)
-                continue
-
-            if command == "undo":
-                self.undo()
-                print(Fore.GREEN + "Undo complete." + Style.RESET_ALL)
-                continue
-
-            if command == "redo":
-                self.redo()
-                print(Fore.GREEN + "Redo complete." + Style.RESET_ALL)
+            try:
+                if command == "history":
+                    print(self.show_history().to_string(index=False))
+                    continue
+                if command == "clear":
+                    self.clear_history()
+                    print(Fore.GREEN + "History cleared." + Style.RESET_ALL)
+                    continue
+                if command == "undo":
+                    self.undo()
+                    print(Fore.GREEN + "Undo complete." + Style.RESET_ALL)
+                    continue
+                if command == "redo":
+                    self.redo()
+                    print(Fore.GREEN + "Redo complete." + Style.RESET_ALL)
+                    continue
+            except (CalculatorError, ValueError, OSError) as exc:
+                self.logger.error("History command failed: %s", exc)
+                print(Fore.RED + f"Error: {exc}" + Style.RESET_ALL)
                 continue
 
             try:

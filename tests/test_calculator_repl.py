@@ -384,3 +384,35 @@ def test_startup_recovers_from_corrupted_history(monkeypatch, tmp_path, capsys):
     assert history_file.exists()
 
     assert calculator.calculate("add", 5, 3) == 8.0
+
+@pytest.mark.parametrize("command", ["clear", "undo", "redo"])
+def test_repl_recovers_from_history_command_error(
+    calculator, monkeypatch, capsys, command
+):
+    """History command failures should not terminate the REPL."""
+    commands = iter([command, "add 5 3", "exit"])
+    monkeypatch.setattr("builtins.input", lambda _: next(commands))
+
+    def failed_history_command():
+        raise OSError("Simulated history storage failure.")
+
+    method_name = {
+        "clear": "clear_history",
+        "undo": "undo",
+        "redo": "redo",
+    }[command]
+
+    monkeypatch.setattr(calculator, method_name, failed_history_command)
+
+    calculator.start()
+
+    output = capsys.readouterr().out
+
+    assert "Error: Simulated history storage failure." in output
+    assert "Result: 8.0" in output
+    assert "Goodbye!" in output
+
+    log_contents = calculator.config.log_file.read_text(
+        encoding="utf-8"
+    )
+    assert "History command failed: Simulated history storage failure." in log_contents
